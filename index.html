@@ -98,22 +98,36 @@ const TABS=[{"key": "num-time", "label": "數字・時間"}, {"key": "basic", "l
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function plain(s){return (s||'').replace(/<[^>]+>/g,'')}
 
+let jpVoiceCache = null;
 function jpVoice(){
   const vs = speechSynthesis.getVoices();
-  return vs.find(v=>v.lang==='ja-JP') || vs.find(v=>v.lang && v.lang.startsWith('ja')) || null;
+  if(!vs.length) return null;
+  jpVoiceCache = vs.find(v=>v.lang==='ja-JP') || vs.find(v=>v.lang && v.lang.startsWith('ja')) || null;
+  return jpVoiceCache;
 }
-function speak(text){
-  if(!('speechSynthesis' in window)){alert('此瀏覽器不支援語音朗讀');return;}
+let _utter = null; // keep a live reference - Chrome silently drops utterances that get garbage-collected
+function doSpeak(text){
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(plain(text));
+  _utter = u;
   u.lang = 'ja-JP';
   u.rate = parseFloat(document.getElementById('rate').value) || 0.85;
   const v = jpVoice(); if(v) u.voice = v;
-  setTimeout(()=>speechSynthesis.speak(u), 60);
+  u.onerror = function(e){ console.error('TTS error:', e.error); };
+  speechSynthesis.speak(u);
+  setTimeout(()=>{ if(speechSynthesis.paused) speechSynthesis.resume(); }, 150);
+}
+function speak(text){
+  if(!('speechSynthesis' in window)){alert('此瀏覽器不支援語音朗讀');return;}
+  if(speechSynthesis.getVoices().length === 0){
+    speechSynthesis.onvoiceschanged = function(){ doSpeak(text); };
+    speechSynthesis.getVoices();
+  } else {
+    doSpeak(text);
+  }
 }
 if('speechSynthesis' in window){
   speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = function(){};
 }
 
 function renderChapter(c){
