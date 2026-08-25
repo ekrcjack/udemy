@@ -99,7 +99,7 @@ const DATA={"num-time":[{num:17,title:"Numbers 1-10",vocab:[{t:"數字 1 怎麼�
 const TABS=[{"key": "num-time", "label": "數字・時間"}, {"key": "basic", "label": "基礎句型"}, {"key": "demo-q", "label": "指示詞・疑問詞"}, {"key": "particle", "label": "助詞"}, {"key": "verb-masu", "label": "動詞ます形・存在文"}, {"key": "te-form", "label": "て形"}, {"key": "adj", "label": "形容詞"}, {"key": "short-form", "label": "常體短形（普通形）"}, {"key": "advanced", "label": "比較・原因・進階句型"}, {"key": "practice", "label": "綜合練習"}];
 
 function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-function plain(s){return (s||'').replace(/<[^>]+>/g,'')}
+function plain(s){return (s||'').replace(/<rt>[^<]*<\/rt>/g,'').replace(/<[^>]+>/g,'')}
 
 let jpVoiceCache = null;
 function jpVoice(){
@@ -127,8 +127,13 @@ function speakOne(text, onDone){
 
 function doSpeak(text){
   stopPlayback();
+  const wasBusy = speechSynthesis.speaking || speechSynthesis.pending;
   speechSynthesis.cancel();
-  speakOne(text, null);
+  if (wasBusy) {
+    setTimeout(()=>speakOne(text, null), 120); // Chrome drops speak() called right after cancel() while busy
+  } else {
+    speakOne(text, null);
+  }
 }
 
 function speak(text){
