@@ -174,7 +174,7 @@ function playAllExamples(num, btn){
   }
   const chapterEl = document.querySelector('.chapter[data-num="'+num+'"]');
   if(!chapterEl) return;
-  const jps = [...chapterEl.querySelectorAll('.ecard .jp')].map(el=>el.textContent).filter(Boolean);
+  const jps = [...chapterEl.querySelectorAll('.ecard .jp')].map(el=>plain(el.innerHTML)).filter(Boolean);
   if(!jps.length){ alert('本課沒有例句可播放'); return; }
   speechSynthesis.cancel();
   playQueue = jps;
@@ -196,7 +196,7 @@ if('speechSynthesis' in window){
 
 function renderChapter(c){
   let html = '<div class="chapter" data-num="'+c.num+'">';
-  html += '<h2 onclick="this.parentElement.classList.toggle(\'closed\')"><span><span class="num">'+c.num+'.</span>'+esc(c.title)+'</span><span class="car">▾</span></h2>';
+  html += '<h2 data-act="toggle"><span><span class="num">'+c.num+'.</span>'+esc(c.title)+'</span><span class="car">▾</span></h2>';
   html += '<div class="body">';
 
   html += '<div class="section-label vocab">① 單字</div>';
@@ -204,7 +204,7 @@ function renderChapter(c){
     html += '<div class="vocab-grid">';
     for(const v of c.vocab){
       html += '<div class="vcard"><span class="term">'+v.t+'</span>'
-            + '<button class="sp" onclick="speak('+JSON.stringify(plain(v.t))+')" title="朗讀">🔊</button>'
+            + '<button class="sp" data-act="voc" title="朗讀">🔊</button>'
             + (v.m ? '<div class="meaning">'+esc(v.m)+'</div>' : '')
             + '</div>';
     }
@@ -224,7 +224,7 @@ function renderChapter(c){
 
   html += '<div class="section-label example">③ 例句</div>';
   if(c.example.length){
-    html += '<button class="sp" style="margin-left:8px;background:#c8892f;color:#fff;border:none;border-radius:999px;padding:4px 12px;font-size:.78rem;cursor:pointer" onclick="playAllExamples('+c.num+',this)">▶ 播放全部例句</button>';
+    html += '<button class="sp playall" style="margin-left:8px;background:#c8892f;color:#fff;border:none;border-radius:999px;padding:4px 12px;font-size:.78rem;cursor:pointer" data-act="all" data-num="'+c.num+'">▶ 播放全部例句</button>';
   }
   if(c.example.length){
     for(const e of c.example){
@@ -233,7 +233,7 @@ function renderChapter(c){
             + (e.en ? '<div class="en">"'+esc(e.en)+'"</div>' : '')
             + '<div class="jp">'+e.jp+'</div>'
             + (e.zh ? '<div class="zh">'+esc(e.zh)+'</div>' : '')
-            + '<button class="sp" onclick="speak('+JSON.stringify(plain(e.jp))+')">🔊 朗讀例句</button>'
+            + '<button class="sp" data-act="ex">🔊 朗讀例句</button>'
             + '</div>';
     }
   } else {
@@ -272,6 +272,25 @@ function applySearch(){
   });
 }
 document.getElementById('q').addEventListener('input', applySearch);
+
+// Event delegation: never embed sentence text inside an onclick="" attribute -
+// quotes in the text break the attribute and the handler silently dies.
+document.getElementById('content').addEventListener('click', function(ev){
+  const btn = ev.target.closest('[data-act]');
+  if(!btn) return;
+  const act = btn.dataset.act;
+  if(act === 'toggle'){
+    btn.parentElement.classList.toggle('closed');
+  } else if(act === 'voc'){
+    const term = btn.closest('.vcard').querySelector('.term');
+    if(term) speak(plain(term.innerHTML));
+  } else if(act === 'ex'){
+    const jp = btn.closest('.ecard').querySelector('.jp');
+    if(jp) speak(plain(jp.innerHTML));
+  } else if(act === 'all'){
+    playAllExamples(btn.dataset.num, btn);
+  }
+});
 
 renderTab(TABS[0].key);
 </script>
