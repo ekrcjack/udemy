@@ -106,17 +106,28 @@ function jpVoice(){
   return jpVoiceCache;
 }
 let _utter = null; // keep a live reference - Chrome silently drops utterances that get garbage-collected
-function doSpeak(text){
-  speechSynthesis.cancel();
+let playQueue = [];
+let playIndex = 0;
+let playBtnEl = null;
+
+function speakOne(text, onDone){
   const u = new SpeechSynthesisUtterance(plain(text));
   _utter = u;
   u.lang = 'ja-JP';
   u.rate = parseFloat(document.getElementById('rate').value) || 0.85;
   const v = jpVoice(); if(v) u.voice = v;
-  u.onerror = function(e){ console.error('TTS error:', e.error); };
+  u.onerror = function(e){ console.error('TTS error:', e.error); if(onDone) onDone(); };
+  u.onend = function(){ if(onDone) onDone(); };
   speechSynthesis.speak(u);
   setTimeout(()=>{ if(speechSynthesis.paused) speechSynthesis.resume(); }, 150);
 }
+
+function doSpeak(text){
+  stopPlayback();
+  speechSynthesis.cancel();
+  speakOne(text, null);
+}
+
 function speak(text){
   if(!('speechSynthesis' in window)){alert('此瀏覽器不支援語音朗讀');return;}
   if(speechSynthesis.getVoices().length === 0){
@@ -126,6 +137,47 @@ function speak(text){
     doSpeak(text);
   }
 }
+
+function playNext(){
+  if(playIndex >= playQueue.length){
+    if(playBtnEl){ playBtnEl.textContent = '▶ 播放全部例句'; playBtnEl = null; }
+    return;
+  }
+  const text = playQueue[playIndex];
+  speakOne(text, function(){ playIndex++; playNext(); });
+}
+
+function stopPlayback(){
+  playQueue = [];
+  playIndex = 0;
+  if(playBtnEl){ playBtnEl.textContent = '▶ 播放全部例句'; playBtnEl = null; }
+}
+
+function playAllExamples(num, btn){
+  if(!('speechSynthesis' in window)){alert('此瀏覽器不支援語音朗讀');return;}
+  if(playBtnEl === btn){ // toggle: clicking again stops
+    speechSynthesis.cancel();
+    stopPlayback();
+    return;
+  }
+  const chapterEl = document.querySelector('.chapter[data-num="'+num+'"]');
+  if(!chapterEl) return;
+  const jps = [...chapterEl.querySelectorAll('.ecard .jp')].map(el=>el.textContent).filter(Boolean);
+  if(!jps.length){ alert('本課沒有例句可播放'); return; }
+  speechSynthesis.cancel();
+  playQueue = jps;
+  playIndex = 0;
+  playBtnEl = btn;
+  btn.textContent = '■ 停止播放';
+  const go = function(){ playNext(); };
+  if(speechSynthesis.getVoices().length === 0){
+    speechSynthesis.onvoiceschanged = go;
+    speechSynthesis.getVoices();
+  } else {
+    go();
+  }
+}
+
 if('speechSynthesis' in window){
   speechSynthesis.getVoices();
 }
@@ -159,6 +211,9 @@ function renderChapter(c){
   }
 
   html += '<div class="section-label example">③ 例句</div>';
+  if(c.example.length){
+    html += '<button class="sp" style="margin-left:8px;background:#c8892f;color:#fff;border:none;border-radius:999px;padding:4px 12px;font-size:.78rem;cursor:pointer" onclick="playAllExamples('+c.num+',this)">▶ 播放全部例句</button>';
+  }
   if(c.example.length){
     for(const e of c.example){
       if(!e.jp) continue;
