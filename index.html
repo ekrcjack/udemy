@@ -144,7 +144,11 @@ function playNext(){
     return;
   }
   const text = playQueue[playIndex];
-  speakOne(text, function(){ playIndex++; playNext(); });
+  speakOne(text, function(){
+    playIndex++;
+    if(playIndex >= playQueue.length){ playNext(); return; }
+    setTimeout(playNext, 500); // 句間間隔 0.5 秒
+  });
 }
 
 function stopPlayback(){
